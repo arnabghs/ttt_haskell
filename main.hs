@@ -2,9 +2,8 @@
 
 module Main where
 
--- moves = (map show [0..8])
--- board = intercalate "\n- + - + -\n" (map (intercalate " | ") (chunksOf 3 moves))
---
+-- board = intercalate "\n- + - + -\n" (Prelude.map (intercalate " | ") (chunksOf 3 (Prelude.map show [0..8])))
+
 import Data.List.Split
 import Data.List
 import Data.Set as Set
@@ -26,14 +25,14 @@ hasWon moves = any ((flip Set.isSubsetOf) moves) winComb
 
 mapPosition :: String -> Maybe Position
 mapPosition charCh
-  | charCh `elem` Prelude.map show [0..8] = Just (choices !! (read charCh))
+  | charCh `elem` (Prelude.map show [0..8]) = Just (choices !! (read charCh))
   | otherwise = Nothing
   where choices = [Zero .. Eight]
 
 updateBoard :: Board -> Symbol -> Position -> Board
-updateBoard (xs, os) sm p
-  | sm == X = (Set.insert p xs, os)
-  | sm == O = (xs, Set.insert p os)
+updateBoard (xs, os) sm pos
+  | sm == X = (Set.insert pos xs, os)
+  | sm == O = (xs, Set.insert pos os)
   | otherwise = (xs, os)
 
 playGame :: GameState -> IO String
@@ -42,21 +41,27 @@ playGame Drawn = return ("game is drawn")
 playGame (InPlay pNow pNext (xs, os))
   |((hasWon xs) || (hasWon os)) == True = playGame (HasWon pNext)
   |(length xs + length os) == 9 = playGame Drawn
-  |otherwise =
-    ((InPlay pNext pNow) <$> ((updateBoard (xs, os) (symbol pNow)) <$> (makeMove pNow))) >>= playGame
+  |otherwise = (makeMove pNow) >>= continueGame pNow pNext (xs,os)
 
-makeMoveWithPosition :: Maybe Position -> Player-> IO Position
-makeMoveWithPosition (Just x) _ = return x
-makeMoveWithPosition Nothing p = do
- putStrLn ("Invalid move")
- makeMove p
+continueGame :: Player-> Player -> Board -> (Maybe Position) -> IO String
+continueGame pNow pNext (xs,os) Nothing = do
+  putStrLn ("Invalid move, Please choose from the given options")
+  playGame (InPlay pNow pNext (xs, os))
+continueGame pNow pNext (xs,os) (Just pos) = do
+  if (Set.member pos (Set.union xs os))
+  then do
+   putStrLn ("Already occupied, please choose an available cell")
+   playGame (InPlay pNow pNext (xs, os))
+  else do
+   let (xs',os') = updateBoard (xs, os) (symbol pNow) pos
+   playGame (InPlay pNext pNow (xs',os'))
 
-makeMove :: Player -> IO Position
+
+makeMove :: Player -> IO (Maybe Position)
 makeMove p = do
   putStrLn ((name p) ++ ", enter your move :")
   choice <- getLine
-  let position = mapPosition choice
-  makeMoveWithPosition position p
+  return (mapPosition choice)
 
 startGame :: IO String
 startGame = do
