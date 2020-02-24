@@ -1,9 +1,5 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-module Main where
-
--- board = intercalate "\n- + - + -\n" (Prelude.map (intercalate " | ") (chunksOf 3 (Prelude.map show [0..8])))
-
 import Data.List.Split
 import Data.List
 import Data.Set as Set
@@ -41,7 +37,7 @@ playGame Drawn = return ("game is drawn")
 playGame (InPlay pNow pNext (xs, os))
   |((hasWon xs) || (hasWon os)) == True = playGame (HasWon pNext)
   |(length xs + length os) == 9 = playGame Drawn
-  |otherwise = (makeMove pNow) >>= continueGame pNow pNext (xs,os)
+  |otherwise = (makeMove pNow (xs,os)) >>= continueGame pNow pNext (xs,os)
 
 continueGame :: Player-> Player -> Board -> (Maybe Position) -> IO String
 continueGame pNow pNext (xs,os) Nothing = do
@@ -57,8 +53,9 @@ continueGame pNow pNext (xs,os) (Just pos) = do
    playGame (InPlay pNext pNow (xs',os'))
 
 
-makeMove :: Player -> IO (Maybe Position)
-makeMove p = do
+makeMove :: Player -> Board -> IO (Maybe Position)
+makeMove p (xs,os) = do
+  printBoard (xs,os)
   putStrLn ((name p) ++ ", enter your move :")
   choice <- getLine
   return (mapPosition choice)
@@ -71,8 +68,26 @@ startGame = do
   p2Name <- getLine
   playGame $ InPlay (Player p1Name X) (Player p2Name O) (Set.empty,Set.empty)
 
+insertSymbol :: [Maybe Int] -> [Maybe Int] -> [String]
+insertSymbol xPos oPos = do
+  let xPosStr = Prelude.map (\(Just x) -> (show x)) xPos
+  let oPosStr = Prelude.map (\(Just x) -> (show x)) oPos
+  let xUpdatedData = Prelude.map (\(e) -> if (elem e xPosStr) then show(X) else e) (Prelude.map show [0..8])
+  let fullUpdatedData = Prelude.map (\(e) -> if (elem e oPosStr) then show(O) else e) xUpdatedData
+  fullUpdatedData
+
+printBoard :: Board -> IO ()
+printBoard (xs,os) =
+ (let xPos = Data.List.map ((flip elemIndex) [Zero .. Eight]) (Set.toAscList xs)
+      oPos = Data.List.map ((flip elemIndex) [Zero .. Eight]) (Set.toAscList os)
+      updatedBoard = insertSymbol xPos oPos
+      boardWithData = intercalate "\n- + - + -\n" (Prelude.map (intercalate " | ") (chunksOf 3 updatedBoard))
+  in putStrLn (boardWithData))
+
+--      boardWithData = intercalate "\n- + - + -\n" (Prelude.map (intercalate " | ") (chunksOf 3 square_values))
+
 main :: IO ()
 main = do
-  putStrLn "-------------------Started-------------------"
+  print "-------------------Started-------------------"
   game <- startGame
-  putStrLn game
+  print game
